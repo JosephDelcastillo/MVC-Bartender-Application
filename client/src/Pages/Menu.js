@@ -1,12 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import Swal from 'sweetalert2';
 import Axios from "axios";
-import $ from 'jquery';
 
 import MenuComponent from '../Components/Menu';
 import CartTable from '../Components/CartTable';
-
-const LOCAL_STORAGE_KEY = 'bartender.orderData';
 
 const Toast = Swal.mixin({
     toast: true, position: 'top-end', showConfirmButton: false, timer: 1000, timerProgressBar: true, customClass: "swal-dark",
@@ -14,59 +11,47 @@ const Toast = Swal.mixin({
         toast.addEventListener('mouseenter', Swal.stopTimer);
         toast.addEventListener('mouseleave', Swal.resumeTimer);
     }
-})
+}); 
 
 function Menu() {
     const [backendData, setBackendData] = useState([{}]);
-    const [orderData, setOrderData] = useState({});
-
-    const UpdateCart = (newList) => {
-        if(newList) {
-            localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(newList));
-        } else {
-            localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(orderData));
-        }
-
-        // Show Or Hide Cart
-        if(orderData && Object.entries(orderData).length > 0) $('#cart').show()
-        else $('#cart').hide()
-    }
+    const [orderData, setOrderData] = useState([{}]);
 
     const AddToCart = ({id, name}) => {
-        // Setup Data 
-        let newList = orderData;
-        // Add or Increment
-        newList[id] = (typeof newList[id] === 'undefined') ? 1 : newList[id] + 1;
-        // Set New Data
-        setOrderData(newList);
-
-        // Update Cart Storage and Visual
-        UpdateCart();
+        const genOrderData = () => { return { id: id, count: 1 } }; 
+        let order = (typeof orderData.products === "undefined") ? { products: [genOrderData()] } : { products: [...orderData.products] };
+        if (typeof orderData.products !== "undefined") {
+            // Search for order
+            let loc = orderData.products.findIndex(orderP => orderP.id === id);
+            if (loc >= 0) { order.products[loc].count++; }
+            else { order.products.push(genOrderData()) }
+        }
+        setOrderData(order);
 
         // Notify the User 
-        Toast.fire({ icon: 'success', titleText: `1 ${name} Added to Cart` }).then(() => { window.location.reload() });
+        Toast.fire({ icon: 'success', titleText: `1 ${name} Added to Cart` });
     }
 
     const RemoveFromCart = ({id, name}) => {
-        // Setup Data 
-        let newList = orderData;
-        // Remove or Decrement
-        if(newList[id] > 1) {
-            newList[id]--;
-        } else {
-            delete newList[id];
+        console.log('Remove')
+        let order = (typeof orderData.products === "undefined") ? null : { products: [...orderData.products] };
+        if (typeof order.products !== "undefined") {
+            // Search for order
+            let loc = order.products.findIndex(orderP => orderP.id === id);
+            if (loc >= 0) { 
+                if ((order.products[loc].count - 1) <= 0) {
+                    order.products.splice(loc, 1);
+                } else {
+                    order.products[loc].count--; 
+                }
+            }
         }
-        // Set New Data
-        setOrderData(newList);
-
-        // Update Front-End Visuals
-        UpdateCart(newList);
+        setOrderData((order.products && order.products.length > 0) ? order : {});
 
         // Notify the User 
-        Toast.fire({ icon: 'success', titleText: `1 ${name} Removed From Cart` }).then(() => { window.location.reload() });
+        Toast.fire({ icon: 'info', titleText: `1 ${name} Removed From Cart` });
     }
 
-    // Submit Cart 
     const SubmitOrder = () => {
         Swal.fire({
             title: 'Add Order',
@@ -81,48 +66,32 @@ function Menu() {
                 return { name: name };
             }
         }).then((result) => {
-            let arr = [];
-            Object.entries(orderData).map((e) => { return arr.push({id: e[0], count: e[1]}) })
-            let data = { name: result.value.name, products: arr }; 
+            let data = { name: result.value.name, products: orderData.products }; 
             
             let error = () => { Swal.fire({titleText: "Failed", customClass: 'swal-dark', icon: 'error'}); };
             Axios.post('/api', data).then(response => {
                 if(response.data.success) {
-                    UpdateCart({});
-                    Swal.fire({titleText: 'Success', customClass: 'swal-dark', icon: 'success'}).then(() => {
-                        window.location.reload()
-                    });
+                    setOrderData({});
+                    Swal.fire({titleText: 'Success', customClass: 'swal-dark', icon: 'success'});
                 } else {
                     error();
                 }
             }).catch(error => {
                 error();
             });
-        });
-    }
+        });}
+
 
     // Load Products Initially 
     useEffect(() => {
-        // Get Order Data
-        const local = localStorage.getItem(LOCAL_STORAGE_KEY);
-        if(typeof local !== "undefined") {
-            try {
-                const newOrderData = JSON.parse(local);
-                if(newOrderData) setOrderData(newOrderData);
-            } catch (e) {
-                Swal.fire({ title: "Error Getting Data", icon: 'error', customClass: 'swal-dark' })
-            }
-        }
-
         // Get Product Data 
-        fetch('/api').then( response => response.json()
-        ).then( data => { 
+        fetch('/api').then( response => response.json() )
+        .then( data => { 
             if(data.success === true) setBackendData({ products: data.data }) 
             else Swal.fire({title: 'Failed to Load Menu', text: 'Try Refreshing', customClass: 'swal-dark'});
         });
     }, []);
 
-    // Generate Page 
     return (
         <div className="card text-bg-dark m-2 border-none">
             <div className="card-header text-center">
@@ -142,34 +111,13 @@ function Menu() {
                         <MenuComponent products={backendData.products} addHandler={AddToCart} />
                     </ul>
                 </div>
+                
+                {(typeof orderData.products == 'undefined') ? 
+                    (<div className='text-center'>Click the <i className="fa fa-plus text-success c-pointer hover-spin"></i> to add to your cart</div>) : 
+                    (<CartTable products={backendData.products} cart={orderData.products} SubmitHandler={SubmitOrder} RemoveHandler={RemoveFromCart} />)
+                }
 
-                <CartTable products={backendData.products} cart={orderData} SubmitHandler={SubmitOrder} RemoveHandler={RemoveFromCart} />
-                {/* <div id='cart'>
-                    <div className='card-header'>
-                        <h3> Cart </h3>
-                    </div>
-                    <table className="table table-dark table-striped table-hover mb-3">
-                        <thead>
-                            <tr>
-                                <th scope='col'>Name</th>
-                                <th scope='col' className='text-center'>Price</th>
-                                <th scope='col' className='text-center'>Quantity</th>
-                                <th scope='col' className='text-center'>SubTotal</th>
-                                <th scope='col' className='text-center'>Remove</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {(typeof orderData !== 'undefined' && Object.entries(orderData).length > 0) ? (
-                                <Cart products={backendData.products} cart={orderData} removeHandler={RemoveFromCart} />
-                            ) : ( 
-                                <tr>
-                                    <td className='text-center' colSpan={5}>Your Cart is Currently Empty {Object.entries(orderData).length}</td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
-                    <div className="btn btn-outline-success w-100" onClick={e => SubmitOrder()} id="submitOrderBtn">Submit Order</div>
-                </div> */}
+                {/* <CartTable products={backendData.products} cart={orderData} SubmitHandler={SubmitOrder} RemoveHandler={RemoveFromCart} /> */}
             </div>
             )}
         </div>

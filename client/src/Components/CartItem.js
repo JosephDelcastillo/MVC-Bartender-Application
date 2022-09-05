@@ -7,7 +7,7 @@ function CartItem({product, count, deletionHandler}) {
             <td className="text-center"> $ {product.price} ea </td>
             <td className="text-center"> {count} </td>
             <td className="text-center"> $ {product.price * count} </td>
-            <td className="text-center"><i onClick={e => deletionHandler(product)} className='fa fa-minus text-danger hover-spin'></i></td>
+            <td className="text-center"><i onClick={e => deletionHandler(product)} className='fa fa-minus text-danger c-pointer hover-spin'></i></td>
         </tr>
     )
 }

@@ -12,7 +12,7 @@ function MenuItem ({product, AddHandler}) {
                 <div className="d-flex w-100 justify-content-between">
                     <div>{description}</div>
                 <small className='pe-3'> 
-                    <i onClick={e => AddHandler({id, name})} className='fa fa-plus text-success hover-spin'></i> 
+                    <i onClick={e => AddHandler(product)} className='fa fa-plus text-success c-pointer hover-spin'></i> 
                 </small>
                 </div>
             </div>

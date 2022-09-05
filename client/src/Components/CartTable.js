@@ -18,7 +18,7 @@ function CartTable({ cart, products, SubmitHandler, RemoveHandler }) {
                     </tr>
                 </thead>
                 <tbody>
-                    {(typeof cart !== 'undefined' && Object.entries(cart).length > 0) ? (
+                    {(typeof cart !== 'undefined' && cart.length > 0) ? (
                         <Cart products={products} cart={cart} removeHandler={RemoveHandler} />
                     ) : ( 
                         <tr>
